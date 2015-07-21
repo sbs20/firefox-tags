@@ -1,0 +1,182 @@
+<html>
+<head>
+</head>
+<body>
+
+<textarea id="source" rows="10" cols="80" value=""></textarea><br/>
+<input type="button" value="go" onclick="run();"></input><br/>
+<div>Original bookmarks had <span id="originalLinkCount">?</span> links</div>
+<div>New bookmarks have <span id="newLinkCount">?</span> links</div>
+<textarea id="result" rows="20" cols="80" value=""></textarea>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+
+<script>
+
+var b = {}
+
+var TYPE_FOLDER = "text/x-moz-place-container";
+var TYPE_LINK = "text/x-moz-place";
+var IGNORE_FOLDERS = ["Bookmarks Menu"];
+
+var utils = {
+	arrayRemoveItems: function(a, i) {
+		for (var index = 0; index < a.length ; index++) {
+			i.forEach(function (e) {
+				if (a[index] === e) {
+					a.splice(index, 1);
+					index--;
+				}
+			})
+		}
+	},
+
+	unique: function (a) {
+		var seen = {};
+		return a.filter(function(item) {
+			return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+		});
+	},
+	
+	collapse: function (a) {
+		var s = "";
+		a.forEach (function (e) {
+			if (e !== "") {
+				s += "," + e;
+			}
+		});
+		if (s.length > 0) {
+			s = s.substr(1);
+		}
+		return s;
+	},
+	
+	clone: function (o) {
+		return JSON.parse(JSON.stringify(o));
+	}
+};
+
+var LinkList = function () {
+	var self = this;
+	self.list = [];
+	
+	self.indexOf = function (uri) {
+		for (var index = 0; index < self.list.length; index++) {
+			if (self.list[index].uri === uri) {
+				return index;
+			}
+		}
+		
+		return -1;
+	};
+	
+	var mergeLinks = function (link1, link2) {
+		var tags = [];
+		
+		if (link1) {
+			if (link1.folders) tags = tags.concat(link1.folders);
+			if (link1.tags) tags = tags.concat(link1.tags.split(","));
+		}
+		
+		if (link2) {
+			if (link2.folders) tags = tags.concat(link2.folders);
+			if (link2.tags) tags = tags.concat(link2.tags.split(","));
+		}
+		
+		tags = utils.unique(tags).sort();
+		utils.arrayRemoveItems(tags, IGNORE_FOLDERS);		
+		
+		var link = utils.clone(link1);
+		link.folders = undefined;
+		link.tags = utils.collapse(tags);
+		return link;
+	};
+	
+	self.item = function (uri, link) {
+		if (link === undefined) {
+			return self.list[self.indexOf(uri)];
+		} else {
+			var index = self.indexOf(uri);
+			if (index === - 1) {
+				var l = mergeLinks(link);
+				self.list.push(l);				
+			} else {
+				var l = mergeLinks(link, self.list[index]);
+				self.list[index] = l;
+			}
+		}
+	}
+	
+	self.merge = function (link) {
+		self.item(link.uri, link);
+	}
+};
+
+var Merger = function () {
+	var links = new LinkList();
+	var folders = [];
+	var self = this;
+	var originalLinkCount = 0;
+	var newLinkCount = 0;
+
+	var doNode = function (node) {
+		switch (node.type) {
+			case TYPE_LINK:
+				node.folders = folders;
+				links.merge(node);
+				originalLinkCount++;
+				break;
+				
+			case TYPE_FOLDER:
+				if (node.title !== "") {
+					folders.push(node.title);
+				}
+				
+				if (node.children) {
+					node.children.forEach(function(e) {
+						doNode(e);
+					});
+				}
+
+				if (node.title !== "") {
+					folders.pop();
+				}
+				break;
+		}
+	};
+	
+	self.processRoot = function (root) {
+		var rootClone = utils.clone(root);
+		doNode(root);
+		newLinkCount = links.list.length;
+		rootClone.children[0].children = links.list;
+		return rootClone;
+	};
+	
+	self.originalLinkCount = function () {
+		return originalLinkCount;
+	};
+
+	self.newLinkCount = function () {
+		return newLinkCount;
+	};
+};
+
+var run = function () {
+	var source = JSON.parse($("#source").val());
+	var m = new Merger();
+	var output = m.processRoot(source);
+	$("#originalLinkCount").text(m.originalLinkCount()); 
+	$("#newLinkCount").text(m.newLinkCount()); 
+	var outputJson = JSON.stringify(output);
+	$("#result").val(outputJson);
+};
+
+//$(document).ready(function () {
+	$("#source").val(JSON.stringify(b));
+//});
+
+</script>
+</body>
+</html>
