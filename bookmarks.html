@@ -439,16 +439,16 @@ var JsonFormatter = function (canvasId) {
 	}
 
 	function collapseLevel(level) {
-	  ensureIsPopulated();
-	  iterateChildren($id(config.canvas), function(element, depth) {
-	    if (element.className == 'collapsible') {
-	      if (depth >= level) {
-	        setContentVisibility(element, false);
-	      } else {
-	        setContentVisibility(element, true);  
-	      }
-	    }
-	  }, 0);
+		ensureIsPopulated();
+		iterateChildren($id(config.canvas), function(element, depth) {
+			if (element.className == 'collapsible') {
+				if (depth >= level) {
+					setContentVisibility(element, false);
+				} else {
+					setContentVisibility(element, true);  
+				}
+			}
+		}, 0);
 	}
 
 	function ensureIsPopulated() {
@@ -464,29 +464,30 @@ var JsonFormatter = function (canvasId) {
 	}
 
 	function selectAll() {
-	 
-	  if (!!document.selection && !!document.selection.empty) {
-	    document.selection.empty();
-	  } else if (window.getSelection) {
-	    var sel = window.getSelection();
-	    if (sel.removeAllRanges) {
-	      window.getSelection().removeAllRanges();
-	    }
-	  }
-	 
-	  var range = !!document.body && !!document.body.createTextRange
+		if (!!document.selection && !!document.selection.empty) {
+			document.selection.empty();
+		} else if (window.getSelection) {
+			var sel = window.getSelection();
+			if (sel.removeAllRanges) {
+				window.getSelection().removeAllRanges();
+			}
+		}
+		
+		var range = !!document.body && !!document.body.createTextRange
 			? document.body.createTextRange()
 			: document.createRange();
-	  
-	  if (!!range.selectNode)
-	    range.selectNode($id(config.canvas));
-	  else if (range.moveToElementText)
-	    range.moveToElementText($id(config.canvas));
-	  
-	  if (!!range.select)
-	    range.select($id(config.canvas));
-	  else
-	    window.getSelection().addRange(range);
+		
+		if (!!range.selectNode) {
+			range.selectNode($id(config.canvas));
+		} else if (range.moveToElementText) {
+			range.moveToElementText($id(config.canvas));
+		}
+		
+		if (!!range.select) {
+			range.select($id(config.canvas));
+		} else {
+			window.getSelection().addRange(range);
+		}
 	}
 
 	// function LinkToJson() {
@@ -499,13 +500,13 @@ var JsonFormatter = function (canvasId) {
 
 </script>
 <style> 
-/*
-*{
-	font-family: Georgia;
-}*/
+PRE {
+	font-family: Consolas;
+	font-size: 0.8em;
+}
 .Canvas
 {
-	font: 10pt Georgia;
+	font: 8pt;
 	background-color:#ECECEC;
 	color:#000000;
 	border:solid 1px #CECECE;
