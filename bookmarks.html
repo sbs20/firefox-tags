@@ -6,13 +6,13 @@
 		body {
 			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 			font-size: 1.2em;
-			width: 800px;
+			width: 90%;
 			margin: auto;
 			padding: 10px;
 		}
 		
 		.dndtarget {
-			width: 500px;
+			zwidth: 500px;
 			background-color: darkgreen;
 			border: dashed 5px blue;
 			border-radius: 10px;
@@ -30,14 +30,12 @@
 
 <div id="source1" class="dndtarget">
 	In Firefox "Show all bookmarks" (ctrl-shift-b)<br/>
-	Select "All bookmarks"<br/>
-	Loot at the toolbar at the top...<br/>
 	Press "Import and backup... > Backup" and then save the bookmarks_{date}.json file<br/>
 	Drag that file on here and let go
 </div>
 <div>Original bookmarks had <span id="originalLinkCount">?</span> links</div>
 <div>New bookmarks have <span id="newLinkCount">?</span> links</div>
-<div id="Canvas" class="Canvas"></div> 
+<div id="Canvas1" class="Canvas"></div> 
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
 
@@ -194,29 +192,6 @@ var BookmarkReader = function () {
 	};
 };
 
-var run = function () {
-	var source = JSON.parse($("#source").val());
-	var m = new BookmarkReader();
-	var output = m.processRoot(source);
-	$("#originalLinkCount").text(m.originalLinkCount()); 
-	$("#newLinkCount").text(m.newLinkCount()); 
-	var outputJson = JSON.stringify(output);
-	$("#result").val(outputJson);
-};
-
-var run2 = function(inputJson) {
-	var input = JSON.parse(inputJson);
-	var reader = new BookmarkReader();
-	var output = reader.processRoot(input);
-	$("#originalLinkCount").text(reader.originalLinkCount()); 
-	$("#newLinkCount").text(reader.newLinkCount()); 
-	var outputJson = JSON.stringify(output);
-	//$("#result").val(outputJson);
-	
-	var formatter = new JsonFormatter();
-	formatter.Process(outputJson);
-} 
-
 var dragdrop = {
 	handleFileSelect: function (event) {
 		event.stopPropagation();
@@ -245,16 +220,23 @@ var dragdrop = {
 		event.originalEvent.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
 	},
 	
-	handleReadEnd: function (s) {
-		run2(s);
-		//window.alert(s.substring(0, 25));
-		//$("source").val(event.target.result)
-	}
+	handleReadEnd: function (s) {}
 }
 
 var page = {
 	init: function () {
-		//$("#source").val(JSON.stringify(b));
+		dragdrop.handleReadEnd = function (s) {
+			var o = JSON.parse(s);
+			var reader = new BookmarkReader();
+			var output = reader.processRoot(o);
+			$("#originalLinkCount").text(reader.originalLinkCount()); 
+			$("#newLinkCount").text(reader.newLinkCount()); 
+			var outputJson = JSON.stringify(output);
+			
+			var formatter = new JsonFormatter("Canvas1");
+			formatter.Process(outputJson);
+		};
+		
 		$("#source1").on({
 			dragover: dragdrop.handleDragOver,
 			drop: dragdrop.handleFileSelect			
@@ -276,22 +258,22 @@ https://quickjsonformatter.codeplex.com/
 
 */
  
-// we need tabs as spaces and not CSS magin-left 
-// in order to ratain format when coping and pasing the code
+// we need tabs as spaces and not CSS margin-left 
+// in order to retain format when copying and pasting the code
 
-var JsonFormatter = function () {
+var JsonFormatter = function (canvasId) {
 	var _this = this;
 	
 	var config = {
-		canvas: "Canvas",
+		canvas: canvasId || "Canvas",
 		tabSize: 2,
 		isCollapsible: true,
-		SINGLE_TAB: "  ",
-		ImgCollapsed: "images/Collapsed.gif",
-		ImgExpanded: "images/Expanded.gif",
-		QuoteKeys: true,
-		_dateObj: new Date(),
-		_regexpObj: new RegExp(),
+		singleTab: "  ",
+		imageCollapsed: "images/Collapsed.gif",
+		imageExpanded: "images/Expanded.gif",
+		quoteKeys: true,
+		date: new Date(),
+		regex: new RegExp(),
 	};
 	
 	function $id(id) {
@@ -306,210 +288,208 @@ var JsonFormatter = function () {
 	}
 	
 	_this.Process = function (json) {
-		SetTab();
+		config.TAB = multiplyString(config.tabSize, config.singleTab);
 		var html = "";
 		try {
 			if (json == "") json = "\"\"";
 			var obj = eval("["+json+"]");
-			html = ProcessObject(obj[0], 0, false, false, false);
+			html = toHtml(obj[0], 0, false, false, false);
 			$id(config.canvas).innerHTML = "<PRE class='CodeContainer'>"+html+"</PRE>";
-		}catch(e){
+		}catch(e) {
 			alert("JSON is not well formated:\n"+e.message);
 			$id(config.canvas).innerHTML = "";
 		}
 	}
 	
-	function ProcessObject(obj, indent, addComma, isArray, isPropertyContent){
+	function toHtml(obj, indent, addComma, isArray, isPropertyContent) {
 		var html = "";
 		var comma = addComma ? "<span class='Comma'>,</span> " : ""; 
 		var type = typeof obj;
 		var clpsHtml ="";
 		if (IsArray(obj)) {
-			if(obj.length == 0){
-				html += GetRow(indent, "<span class='ArrayBrace'>[ ]</span>"+comma, isPropertyContent);
-			}else{
-				clpsHtml = config.isCollapsible ? "<span><img src=\""+config.ImgExpanded+"\" onClick=\"ExpImgClicked(this)\" /></span><span class='collapsible'>" : "";
-				html += GetRow(indent, "<span class='ArrayBrace'>[</span>"+clpsHtml, isPropertyContent);
-				for(var i = 0; i < obj.length; i++){
-					html += ProcessObject(obj[i], indent + 1, i < (obj.length - 1), true, false);
+			if (obj.length == 0) {
+				html += formatRow(indent, "<span class='ArrayBrace'>[ ]</span>"+comma, isPropertyContent);
+			} else {
+				clpsHtml = config.isCollapsible ? "<span><img src=\""+config.imageExpanded+"\" onClick=\"JsonFormatter.toggleContainer(this)\" /></span><span class='collapsible'>" : "";
+				html += formatRow(indent, "<span class='ArrayBrace'>[</span>"+clpsHtml, isPropertyContent);
+				for (var i = 0; i < obj.length; i++) {
+					html += toHtml(obj[i], indent + 1, i < (obj.length - 1), true, false);
 				}
 				clpsHtml = config.isCollapsible ? "</span>" : "";
-				html += GetRow(indent, clpsHtml+"<span class='ArrayBrace'>]</span>"+comma);
+				html += formatRow(indent, clpsHtml+"<span class='ArrayBrace'>]</span>"+comma);
 			}
-		}else if(type == 'object'){
-			if (obj == null){
-				html += FormatLiteral("null", "", comma, indent, isArray, "Null");
-			}else if (obj.constructor == config._dateObj.constructor) { 
-				html += FormatLiteral("new Date(" + obj.getTime() + ") /*" + obj.toLocaleString()+"*/", "", comma, indent, isArray, "Date"); 
-			}else if (obj.constructor == config._regexpObj.constructor) {
-				html += FormatLiteral("new RegExp(" + obj + ")", "", comma, indent, isArray, "RegExp"); 
-			}else{
+		} else if (type == 'object') {
+			if (obj == null) {
+				html += formatLiteral("null", "", comma, indent, isArray, "Null");
+			} else if (obj.constructor == config.date.constructor) { 
+				html += formatLiteral("new Date(" + obj.getTime() + ") /*" + obj.toLocaleString()+"*/", "", comma, indent, isArray, "Date"); 
+			} else if (obj.constructor == config.regex.constructor) {
+				html += formatLiteral("new RegExp(" + obj + ")", "", comma, indent, isArray, "RegExp"); 
+			} else {
 				var numProps = 0;
-				for(var prop in obj) numProps++;
-				if(numProps == 0){
-					html += GetRow(indent, "<span class='ObjectBrace'>{ }</span>"+comma, isPropertyContent);
-				}else{
-					clpsHtml = config.isCollapsible ? "<span><img src=\""+config.ImgExpanded+"\" onClick=\"ExpImgClicked(this)\" /></span><span class='collapsible'>" : "";
-					html += GetRow(indent, "<span class='ObjectBrace'>{</span>"+clpsHtml, isPropertyContent);
+				for (var prop in obj) numProps++;
+				if (numProps == 0) {
+					html += formatRow(indent, "<span class='ObjectBrace'>{ }</span>"+comma, isPropertyContent);
+				} else {
+					clpsHtml = config.isCollapsible ? "<span><img src=\""+config.imageExpanded+"\" onClick=\"JsonFormatter.toggleContainer(this)\" /></span><span class='collapsible'>" : "";
+					html += formatRow(indent, "<span class='ObjectBrace'>{</span>"+clpsHtml, isPropertyContent);
 					var j = 0;
-					for(var prop in obj){
-						var quote = config.QuoteKeys ? "\"" : "";
-						html += GetRow(indent + 1, "<span class='PropertyName'>"+quote+prop+quote+"</span>: "+ProcessObject(obj[prop], indent + 1, ++j < numProps, false, true));
+					for (var prop in obj) {
+						var quote = config.quoteKeys ? "\"" : "";
+						html += formatRow(indent + 1, "<span class='PropertyName'>"+quote+prop+quote+"</span>: "+toHtml(obj[prop], indent + 1, ++j < numProps, false, true));
 					}
 					clpsHtml = config.isCollapsible ? "</span>" : "";
-					html += GetRow(indent, clpsHtml+"<span class='ObjectBrace'>}</span>"+comma);
+					html += formatRow(indent, clpsHtml+"<span class='ObjectBrace'>}</span>"+comma);
 				}
 			}
-		}else if(type == 'number'){
-			html += FormatLiteral(obj, "", comma, indent, isArray, "Number");
-		}else if(type == 'boolean'){
-			html += FormatLiteral(obj, "", comma, indent, isArray, "Boolean");
-		}else if(type == 'function'){
-			if (obj.constructor == config._regexpObj.constructor) {
-				html += FormatLiteral("new RegExp(" + obj + ")", "", comma, indent, isArray, "RegExp"); 
-			}else{
-				obj = FormatFunction(indent, obj);
-				html += FormatLiteral(obj, "", comma, indent, isArray, "Function");
+		} else if (type == 'number') {
+			html += formatLiteral(obj, "", comma, indent, isArray, "Number");
+		} else if (type == 'boolean') {
+			html += formatLiteral(obj, "", comma, indent, isArray, "Boolean");
+		} else if (type == 'function') {
+			if (obj.constructor == config.regex.constructor) {
+				html += formatLiteral("new RegExp(" + obj + ")", "", comma, indent, isArray, "RegExp"); 
+			} else {
+				obj = formatFunction(indent, obj);
+				html += formatLiteral(obj, "", comma, indent, isArray, "Function");
 			}
-		}else if(type == 'undefined'){
-			html += FormatLiteral("undefined", "", comma, indent, isArray, "Null");
-		}else{
-			html += FormatLiteral(obj.toString().split("\\").join("\\\\").split('"').join('\\"'), "\"", comma, indent, isArray, "String");
+		} else if (type == 'undefined') {
+			html += formatLiteral("undefined", "", comma, indent, isArray, "Null");
+		} else {
+			html += formatLiteral(obj.toString().split("\\").join("\\\\").split('"').join('\\"'), "\"", comma, indent, isArray, "String");
 		}
 		return html;
 	}
 	
-	function FormatLiteral(literal, quote, comma, indent, isArray, style){
-		if(typeof literal == 'string')
+	function formatLiteral(literal, quote, comma, indent, isArray, style) {
+		if (typeof literal == 'string') {
 			literal = literal.split("<").join("&lt;").split(">").join("&gt;");
-		var str = "<span class='"+style+"'>"+quote+literal+quote+comma+"</span>";
-		if(isArray) str = GetRow(indent, str);
-		return str;
+		}
+		
+		var s = "<span class='" + style + "'>" + quote + literal + quote + comma + "</span>";
+		if (isArray) s = formatRow(indent, s);
+		return s;
 	}
 
-	function FormatFunction(indent, obj){
+	function formatFunction(indent, obj) {
 		var tabs = "";
-		for(var i = 0; i < indent; i++) tabs += config.TAB;
+		for (var i = 0; i < indent; i++) tabs += config.TAB;
 		var funcStrArray = obj.toString().split("\n");
 		var str = "";
-		for(var i = 0; i < funcStrArray.length; i++){
-			str += ((i==0)?"":tabs) + funcStrArray[i] + "\n";
+		for (var i = 0; i < funcStrArray.length; i++) {
+			str += (i==0 ? "" : tabs) + funcStrArray[i] + "\n";
 		}
 		return str;
 	}
 
-	function GetRow(indent, data, isPropertyContent){
+	function formatRow(indent, data, isPropertyContent) {
 		var tabs = "";
-		for(var i = 0; i < indent && !isPropertyContent; i++) tabs += config.TAB;
-		if(data != null && data.length > 0 && data.charAt(data.length-1) != "\n")
-			data = data+"\n";
+		for (var i = 0; i < indent && !isPropertyContent; i++) tabs += config.TAB;
+		if (data != null && data.length > 0 && data.charAt(data.length - 1) != "\n") {
+			data = data + "\n";
+		}
 		return tabs+data;                       
 	}	
 	
-	function CollapseAllClicked(){
-		EnsureIsPopulated();
-		TraverseChildren($id(config.canvas), function(element){
-			if(element.className == 'collapsible'){
-			MakeContentVisible(element, false);
+	function collapseAll() {
+		ensureIsPopulated();
+		iterateChildren($id(config.canvas), function(element) {
+			if (element.className == 'collapsible') {
+				setContentVisibility(element, false);
 			}
 		}, 0);
 	}
 
-	function ExpandAllClicked(){
-		EnsureIsPopulated();
-		TraverseChildren($id(config.canvas), function(element){
-			if(element.className == 'collapsible'){
-			MakeContentVisible(element, true);
+	function expandAll() {
+		ensureIsPopulated();
+		iterateChildren($id(config.canvas), function(element) {
+			if (element.className == 'collapsible') {
+				setContentVisibility(element, true);
 			}
 		}, 0);
 	}
 
-	function MakeContentVisible(element, visible){
+	function setContentVisibility(element, visible) {
 		var img = element.previousSibling.firstChild;
-		if(!!img.tagName && img.tagName.toLowerCase() == "img"){
+		if (!!img.tagName && img.tagName.toLowerCase() == "img") {
 			element.style.display = visible ? 'inline' : 'none';
-			element.previousSibling.firstChild.src = visible ? config.ImgExpanded : config.ImgCollapsed;
+			element.previousSibling.firstChild.src = visible ? config.imageExpanded : config.imageCollapsed;
 		}
 	}
 
-	function TraverseChildren(element, func, depth){
-		for(var i = 0; i < element.childNodes.length; i++){
-			TraverseChildren(element.childNodes[i], func, depth + 1);
+	function iterateChildren(element, func, depth) {
+		for (var i = 0; i < element.childNodes.length; i++) {
+			iterateChildren(element.childNodes[i], func, depth + 1);
 		}
 		func(element, depth);
 	}
 
-	function ExpImgClicked(img){
+	// "Static" method
+	JsonFormatter.toggleContainer = function (img) {
 		var container = img.parentNode.nextSibling;
-		if(!container) return;
+		if (!container) return;
 		var disp = "none";
-		var src = config.ImgCollapsed;
-		if(container.style.display == "none"){
+		var src = config.imageCollapsed;
+		if (container.style.display == "none") {
 			disp = "inline";
-			src = config.ImgExpanded;
+			src = config.imageExpanded;
 		}
 		container.style.display = disp;
 		img.src = src;
 	}
 
-	// function CollapseLevel(level){
-	//   EnsureIsPopulated();
-	//   TraverseChildren($id(config.canvas), function(element, depth){
-	//     if(element.className == 'collapsible'){
-	//       if(depth >= level){
-	//         MakeContentVisible(element, false);
-	//       }else{
-	//         MakeContentVisible(element, true);  
-	//       }
-	//     }
-	//   }, 0);
-	// }
-	// function TabSizeChanged(){
-	//   Process();
-	// }
-	function SetTab(){
-		config.TAB = MultiplyString(config.tabSize, config.SINGLE_TAB);
+	function collapseLevel(level) {
+	  ensureIsPopulated();
+	  iterateChildren($id(config.canvas), function(element, depth) {
+	    if (element.className == 'collapsible') {
+	      if (depth >= level) {
+	        setContentVisibility(element, false);
+	      } else {
+	        setContentVisibility(element, true);  
+	      }
+	    }
+	  }, 0);
 	}
 
-	function EnsureIsPopulated(){
-		if(!$id(config.canvas).innerHTML && !!$id("RawJson").value) Process();
+	function ensureIsPopulated() {
+		if (!$id(config.canvas).innerHTML && !!$id("RawJson").value) Process();
 	}
 
-	function MultiplyString(num, str){
+	function multiplyString(num, str) {
 		var sb =[];
-		for(var i = 0; i < num; i++){
+		for (var i = 0; i < num; i++) {
 			sb.push(str);
 		}
 		return sb.join("");
 	}
 
-	// function SelectAllClicked(){
-	//  
-	//   if(!!document.selection && !!document.selection.empty) {
-	//     document.selection.empty();
-	//   } else if(window.getSelection) {
-	//     var sel = window.getSelection();
-	//     if(sel.removeAllRanges) {
-	//       window.getSelection().removeAllRanges();
-	//     }
-	//   }
-	//  
-	//   var range = 
-	//       (!!document.body && !!document.body.createTextRange)
-	//           ? document.body.createTextRange()
-	//           : document.createRange();
-	//   
-	//   if(!!range.selectNode)
-	//     range.selectNode($id(config.canvas));
-	//   else if(range.moveToElementText)
-	//     range.moveToElementText($id(config.canvas));
-	//   
-	//   if(!!range.select)
-	//     range.select($id(config.canvas));
-	//   else
-	//     window.getSelection().addRange(range);
-	// }
-	// function LinkToJson(){
+	function selectAll() {
+	 
+	  if (!!document.selection && !!document.selection.empty) {
+	    document.selection.empty();
+	  } else if (window.getSelection) {
+	    var sel = window.getSelection();
+	    if (sel.removeAllRanges) {
+	      window.getSelection().removeAllRanges();
+	    }
+	  }
+	 
+	  var range = !!document.body && !!document.body.createTextRange
+			? document.body.createTextRange()
+			: document.createRange();
+	  
+	  if (!!range.selectNode)
+	    range.selectNode($id(config.canvas));
+	  else if (range.moveToElementText)
+	    range.moveToElementText($id(config.canvas));
+	  
+	  if (!!range.select)
+	    range.select($id(config.canvas));
+	  else
+	    window.getSelection().addRange(range);
+	}
+
+	// function LinkToJson() {
 	//   var val = $id("RawJson").value;
 	//   val = escape(val.split('/n').join(' ').split('/r').join(' '));
 	//   $id("InvisibleLinkUrl").value = val;
