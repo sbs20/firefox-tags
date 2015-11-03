@@ -1,7 +1,7 @@
 # firefoxFoldersToTags
 
 You have previously imported tag based bookmarks / favourites from google or delicious
-and Forefox has arranged them in folders. Where you had a single bookmark with multiple
+and Firefox has arranged them in folders. Where you had a single bookmark with multiple
 tags, now you have multiple folders with the same bookmark.
 
 Firefox now supports tags. This program will take a JSON export of your Firefox bookmarks,
