@@ -11,18 +11,40 @@
 			padding: 10px;
 		}
 		
+        input {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			font-size: 1.2em;
+			margin: auto;
+			padding: 4px;
+        }
+        
+        #mask {
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 100;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: none;
+            text-align: center;
+        }
+        
 		.dndtarget {
-			zwidth: 500px;
-			background-color: darkgreen;
-			border: dashed 5px blue;
+            height: 200px;
+			background-color: #ffbf40;
+			border: dashed 5px black;
 			border-radius: 10px;
 			margin: auto;
+            margin-top: 40;
+            padding-top: 50px;
 			text-align: center;
 			line-height: 1.6em;
 		}
 		
 		.dndtarget:hover {
-			background: green;
+			background: lightgreen;
 		}
 	</style> 
 </head>
@@ -31,23 +53,25 @@
 <div id="source1" class="dndtarget">
 	In Firefox "Show all bookmarks" (ctrl-shift-b)<br/>
 	Press "Import and backup... > Backup" and then save the bookmarks_{date}.json file<br/>
-	Drag that file on here and let go
+	Drag that file on here and let go<br/>
+    Original bookmarks had <span id="originalLinkCount">?</span> links<br/>
+    New bookmarks have <span id="newLinkCount">?</span> links
 </div>
-<div>Original bookmarks had <span id="originalLinkCount">?</span> links</div>
-<div>New bookmarks have <span id="newLinkCount">?</span> links</div>
+<br/>
+<div><input type="button" onclick="page.saveAs();" value="Save as..." /></div>
+<br/>
 <div id="Canvas1" class="Canvas"></div> 
+<div id="mask">Working ...</div>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-
 <script>
-
-var b = {}
 
 var TYPE_FOLDER = "text/x-moz-place-container";
 var TYPE_LINK = "text/x-moz-place";
 var IGNORE_FOLDERS = ["Bookmarks Menu"];
 
 var utils = {
+    // Returns the array (a) without items (i)
 	arrayRemoveItems: function(a, i) {
 		for (var index = 0; index < a.length ; index++) {
 			i.forEach(function (e) {
@@ -59,13 +83,15 @@ var utils = {
 		}
 	},
 
-	unique: function (a) {
+    // Returns the array parameter but only with distinct values
+	distinct: function (a) {
 		var seen = {};
 		return a.filter(function(item) {
 			return seen.hasOwnProperty(item) ? false : (seen[item] = true);
 		});
 	},
 	
+    // Returns an array collapsed to a string with comma delimiter
 	collapse: function (a) {
 		var s = "";
 		a.forEach (function (e) {
@@ -80,7 +106,8 @@ var utils = {
 		
 		return s;
 	},
-	
+
+    // Clones an object	
 	clone: function (o) {
 		return JSON.parse(JSON.stringify(o));
 	}
@@ -113,7 +140,7 @@ var BookmarkList = function () {
 			if (link2.tags) tags = tags.concat(link2.tags.split(","));
 		}
 		
-		tags = utils.unique(tags).sort();
+		tags = utils.distinct(tags).sort();
 		utils.arrayRemoveItems(tags, IGNORE_FOLDERS);		
 		
 		var link = utils.clone(link1);
@@ -122,6 +149,7 @@ var BookmarkList = function () {
 		return link;
 	};
 	
+    // Getter and setter
 	_this.item = function (uri, link) {
 		if (link === undefined) {
 			return _this.list[_this.indexOf(uri)];
@@ -137,6 +165,7 @@ var BookmarkList = function () {
 		}
 	}
 	
+    // Merges a new link into the list
 	_this.merge = function (link) {
 		_this.item(link.uri, link);
 	}
@@ -224,27 +253,49 @@ var dragdrop = {
 }
 
 var page = {
+    outputJson: null,
+    
+    mask: function () {
+        $('#mask').fadeIn();
+    },
+    
+    unmask: function () {
+        $('#mask').fadeOut();
+    },
+    
 	init: function () {
+        // replace the dragdrop end handler
 		dragdrop.handleReadEnd = function (s) {
 			var o = JSON.parse(s);
 			var reader = new BookmarkReader();
 			var output = reader.processRoot(o);
 			$("#originalLinkCount").text(reader.originalLinkCount()); 
 			$("#newLinkCount").text(reader.newLinkCount()); 
-			var outputJson = JSON.stringify(output);
+			page.outputJson = JSON.stringify(output);
 			
 			var formatter = new JsonFormatter("Canvas1");
-			formatter.Process(outputJson);
+			formatter.Process(page.outputJson);
+            page.unmask();
 		};
 		
 		$("#source1").on({
 			dragover: dragdrop.handleDragOver,
-			drop: dragdrop.handleFileSelect			
+			drop: function (event) {
+                page.mask();
+                dragdrop.handleFileSelect(event);
+            }		
 		});
-	}
+	},
+    
+    saveAs: function () {
+        var uriContent = "data:application/octet-stream," + encodeURIComponent(page.outputJson);
+        newWindow = window.open(uriContent, 'new_bookmarks');
+    }
 }
 
-page.init();
+$(document).ready(function () {
+    page.init();
+})
 
 </script>
 
@@ -254,8 +305,6 @@ https://quickjsonformatter.codeplex.com/
 <div id="HeaderTitle">
 	Quick Json Formatter <span style='color:#aaa;font-weight:bold;font-style:italic'>Online</span> 1.0 Copyright (c) 2008-2009 Vladimir Bodurov &nbsp; <a href="http://blog.bodurov.com/Formatter-and-colorer-of-raw-JSON-code">about this tool</a>
 </div> 
-
-
 */
  
 // we need tabs as spaces and not CSS margin-left 
@@ -489,13 +538,6 @@ var JsonFormatter = function (canvasId) {
 			window.getSelection().addRange(range);
 		}
 	}
-
-	// function LinkToJson() {
-	//   var val = $id("RawJson").value;
-	//   val = escape(val.split('/n').join(' ').split('/r').join(' '));
-	//   $id("InvisibleLinkUrl").value = val;
-	//   $id("InvisibleLink").submit();
-	// }
 };
 
 </script>
