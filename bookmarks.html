@@ -5,7 +5,7 @@
 	<style>
 		body {
 			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-			font-size: 1.2em;
+			font-size: 1em;
 			width: 90%;
 			margin: auto;
 			padding: 10px;
@@ -32,15 +32,15 @@
         }
         
 		.dndtarget {
-            height: 200px;
+            height: 150px;
 			background-color: #ffbf40;
 			border: dashed 5px black;
 			border-radius: 10px;
 			margin: auto;
-            margin-top: 40;
-            padding-top: 50px;
+            margin-top: 20;
+            padding-top: 20px;
 			text-align: center;
-			line-height: 1.6em;
+			line-height: 1.4em;
 		}
 		
 		.dndtarget:hover {
@@ -55,10 +55,33 @@
 	Press "Import and backup... > Backup" and then save the bookmarks_{date}.json file<br/>
 	Drag that file on here and let go<br/>
     Original bookmarks had <span id="originalLinkCount">?</span> links<br/>
-    New bookmarks have <span id="newLinkCount">?</span> links
+    New bookmarks have <span id="newLinkCount">?</span> links<br/>
+	If in doubt, please keep your original backup and restore!
 </div>
 <br/>
-<div><input type="button" onclick="page.saveAs();" value="Save as..." /></div>
+
+<div>
+	There are four main folders of links:<br/>
+	<ol>
+		<li>Bookmarks Menu: this is where everything from all folders will end up. Whatever 
+			you had will be flattened in here and tagged instead of in folders.</li>
+		<li>Bookmarks Toolber: whatever was in here will end up in Bookmarks folder. However,
+			it will also remain here. This is by design. If you wish to manually clean up you
+			can either
+			<ul>
+				<li>Delete all links in "Bookmarks Menu" that has a tag of "Bookmarks Toolbar" or</li>
+				<li>Delete everything in here</li>
+			</ul>
+			I may change this if people want it</li>
+		<li>Unsorted bookmarks: this will be flattened into Bookmarks Menu and deleted</li>
+		<li>{Empty}: this will be flattened too but left as-is</li>
+	</ol>					
+</div>
+<br/>
+<div>
+	<input type="button" id="save" onclick="page.saveAs();" value="Save as..." />
+	<input type="button" id="show" onclick="page.showResult();" value="Show result [warning may be slow]" />
+</div>
 <br/>
 <div id="Canvas1" class="Canvas"></div> 
 <div id="mask">Working ...</div>
@@ -204,11 +227,36 @@ var BookmarkReader = function () {
 		}
 	};
 	
-	_this.processRoot = function (root) {
+	_this.tagify = function (root) {
+		// Keep a copy of the original
 		var rootClone = utils.clone(root);
+		
+		// Process everything
 		doNode(root);
+		
+		// Keep a note for the UI
 		newLinkCount = bookmarks.list.length;
+		
+		// Now tidy up...
+		// There are 4 child nodes of the root. The first is the bookmarks
+		// menu. This is the main thing we want to replace so just do it
 		rootClone.children[0].children = bookmarks.list;
+		
+		// The second is the toolbar. If someone has added something to the
+		// toolbar then while we can also copy them into our main list, I 
+		// think someone would be annoyed about removing them, so leave as is
+		
+		// The third is the unsorted bookmarks. These should all be chucked
+		// away. I didn't do this originally as I never had anything in here.
+		// Check first though
+		if (rootClone.children[2].title === 'Unsorted Bookmarks') {
+			rootClone.children[2].children = [];
+		}
+		
+		// The fourth is a special node containing history and downloads. Leave
+		// them where they are.
+		
+		// Return		
 		return rootClone;
 	};
 	
@@ -264,23 +312,26 @@ var page = {
     },
     
 	init: function () {
+		$('#save').prop('disabled', true);
+		$('#show').prop('disabled', true);
+		
         // replace the dragdrop end handler
 		dragdrop.handleReadEnd = function (s) {
 			var o = JSON.parse(s);
 			var reader = new BookmarkReader();
-			var output = reader.processRoot(o);
+			var output = reader.tagify(o);
 			$("#originalLinkCount").text(reader.originalLinkCount()); 
 			$("#newLinkCount").text(reader.newLinkCount()); 
 			page.outputJson = JSON.stringify(output);
-			
-			var formatter = new JsonFormatter("Canvas1");
-			formatter.Process(page.outputJson);
-            page.unmask();
+			page.unmask();		
+			$('#save').prop('disabled', false);
+			$('#show').prop('disabled', false);
 		};
 		
 		$("#source1").on({
 			dragover: dragdrop.handleDragOver,
 			drop: function (event) {
+				$('#Canvas1').empty();
                 page.mask();
                 dragdrop.handleFileSelect(event);
             }		
@@ -290,7 +341,14 @@ var page = {
     saveAs: function () {
         var uriContent = "data:application/octet-stream," + encodeURIComponent(page.outputJson);
         newWindow = window.open(uriContent, 'new_bookmarks');
-    }
+    },
+	
+	showResult: function () {
+		page.mask();
+		var formatter = new JsonFormatter("Canvas1");
+		formatter.Process(page.outputJson);
+		page.unmask();		
+	}
 }
 
 $(document).ready(function () {
