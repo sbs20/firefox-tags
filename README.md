@@ -20,6 +20,7 @@ There are four main folders of links:
  can either
   * Delete all links in "Bookmarks Menu" that has a tag of "Bookmarks Toolbar" or
   * Delete everything in here
+
  I may change this or provide more control if people want it. The reason I haven't yet is
  that Firefox already provides a UI for moving and deleting bookmarks
  3. Unsorted bookmarks: this will be flattened into the Bookmarks Menu and removed
